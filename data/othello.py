@@ -165,6 +165,7 @@ def get_ood_game(_):
         tbr.append(next_step)
         ab.update([next_step, ])
         possible_next_steps = ab.get_valid_moves()
+    if len(tbr) != 60: tbr = get_ood_game(_)
     return tbr
     
 def get(ood_perc=0., data_root=None, wthor=False, ood_num=1000):
@@ -184,6 +185,35 @@ class OthelloBoardState():
         self.age = np.zeros((8, 8))
         self.next_hand_color = 1
         self.history = []
+        self.dangersquares = [1, 6, 8, 9, 14, 15,  62]
+        self.corners = [0, 7, 56, 63]
+
+    def score(self, logits):
+        score = 0
+        move = logits[0, -1].argmax().item()
+
+        state = self.state.copy()
+        age = self.age.copy()
+        nhc = deepcopy(self.next_hand_color)
+
+        score += len(self.get_valid_moves())
+        self.update(move)
+        score -= len(self.get_valid_moves())
+        score /= 60**.5  # rescaling
+
+        if move in self.dangersquares: score -= 1
+        elif move in self.corners: score += 1
+
+        if len(self.get_valid_moves()) == 0:
+            score = np.inf if self.state.sum() > 0 else -np.inf
+
+        # revert update
+        self.state = state
+        self.age = age
+        self.next_hand_color = nhc
+        self.history = self.history[:, -1]
+
+        return score
 
     def get_occupied(self, ):
         board = self.state
